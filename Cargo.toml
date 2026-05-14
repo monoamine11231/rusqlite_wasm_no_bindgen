@@ -49,6 +49,8 @@ collation = []
 functions = []
 # sqlite3_log / sqlite3_trace_v2
 trace = []
+# Force the use of libsqlite3-sys in WASM environments
+force-libsqlite3 = ["dep:libsqlite3-sys"]
 # Use bundled SQLite sources (instead of the one provided by your OS / distribution)
 bundled = ["libsqlite3-sys?/bundled", "modern_sqlite"]
 # Use SQLCipher instead of SQLite
