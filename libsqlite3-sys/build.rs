@@ -120,28 +120,31 @@ mod build_bundled {
         println!("cargo:include={}/{lib_name}", env!("CARGO_MANIFEST_DIR"));
         println!("cargo:rerun-if-changed={lib_name}/sqlite3.c");
         println!("cargo:rerun-if-changed=sqlite3/wasm32-wasi-vfs.c");
+        println!("cargo:rerun-if-changed=sqlite3/wasm32-unknown-vfs.c");
         let mut cfg = cc::Build::new();
-        cfg.file(format!("{lib_name}/sqlite3.c"))
-            .flag("-DSQLITE_CORE")
-            .flag("-DSQLITE_DEFAULT_FOREIGN_KEYS=1")
-            .flag("-DSQLITE_ENABLE_API_ARMOR")
-            .flag("-DSQLITE_ENABLE_COLUMN_METADATA")
-            .flag("-DSQLITE_ENABLE_DBSTAT_VTAB")
-            .flag("-DSQLITE_ENABLE_FTS3")
-            .flag("-DSQLITE_ENABLE_FTS3_PARENTHESIS")
-            .flag("-DSQLITE_ENABLE_FTS5")
-            .flag("-DSQLITE_ENABLE_JSON1")
-            .flag("-DSQLITE_ENABLE_LOAD_EXTENSION=1")
-            .flag("-DSQLITE_ENABLE_MEMORY_MANAGEMENT")
-            .flag("-DSQLITE_ENABLE_RTREE")
-            .flag("-DSQLITE_ENABLE_STAT4")
-            .flag("-DSQLITE_SOUNDEX")
-            .flag("-DSQLITE_THREADSAFE=1")
-            .flag("-DSQLITE_USE_URI")
-            .flag("-DHAVE_USLEEP=1")
-            .flag("-DHAVE_ISNAN")
-            .flag("-D_POSIX_THREAD_SAFE_FUNCTIONS") // cross compile with MinGW
-            .warnings(false);
+        if !env::var("TARGET").is_ok_and(|v| v.starts_with("wasm32-unknown")) {
+            cfg.file(format!("{lib_name}/sqlite3.c"))
+                .flag("-DSQLITE_CORE")
+                .flag("-DSQLITE_DEFAULT_FOREIGN_KEYS=1")
+                .flag("-DSQLITE_ENABLE_API_ARMOR")
+                .flag("-DSQLITE_ENABLE_COLUMN_METADATA")
+                .flag("-DSQLITE_ENABLE_DBSTAT_VTAB")
+                .flag("-DSQLITE_ENABLE_FTS3")
+                .flag("-DSQLITE_ENABLE_FTS3_PARENTHESIS")
+                .flag("-DSQLITE_ENABLE_FTS5")
+                .flag("-DSQLITE_ENABLE_JSON1")
+                .flag("-DSQLITE_ENABLE_LOAD_EXTENSION=1")
+                .flag("-DSQLITE_ENABLE_MEMORY_MANAGEMENT")
+                .flag("-DSQLITE_ENABLE_RTREE")
+                .flag("-DSQLITE_ENABLE_STAT4")
+                .flag("-DSQLITE_SOUNDEX")
+                .flag("-DSQLITE_THREADSAFE=1")
+                .flag("-DSQLITE_USE_URI")
+                .flag("-DHAVE_USLEEP=1")
+                .flag("-DHAVE_ISNAN")
+                .flag("-D_POSIX_THREAD_SAFE_FUNCTIONS") // cross compile with MinGW
+                .warnings(false);
+        }
 
         if cfg!(feature = "bundled-sqlcipher") {
             cfg.flag("-DSQLITE_HAS_CODEC")
@@ -263,6 +266,55 @@ mod build_bundled {
                 cfg.file("sqlite3/wasm32-wasi-vfs.c");
             }
         }
+
+        if env::var("TARGET").is_ok_and(|v| v.starts_with("wasm32-unknown")) {
+            println!("cargo:rustc-link-arg=--no-entry");
+            println!("cargo:rustc-link-arg=-mno-red-zone");
+            println!("cargo:rustc-link-arg=--export-memory");
+            println!("cargo:rustc-link-arg=--export-dynamic");
+            
+            cfg.file(format!("{lib_name}/sqlite3.c"))
+                .flag("-DSQLITE_OMIT_LOAD_EXTENSION")
+                .flag("-DSQLITE_THREADSAFE=0")
+                .flag("-DSQLITE_OMIT_LOCALTIME")
+                // .flag("-DSQLITE_OMIT_AUTOINIT")
+                .flag("-DSQLITE_OMIT_UTF16")
+                .flag("-DSQLITE_OMIT_DEPRECATED")
+                .flag("-DSQLITE_OMIT_PROGRESS_CALLBACK")
+                .flag("-DSQLITE_OMIT_SHARED_CACHE")
+                .flag("-DSQLITE_DEFAULT_MEMSTATUS=0")
+                .flag("-DSQLITE_DQS=0")
+                .flag("-DSQLITE_OS_OTHER=1")
+                .flag("-DSQLITE_ENABLE_MEMSYS5")
+                .flag("-DSQLITE_OMIT_WAL")
+                .flag("-DSQLITE_OMIT_COMPLETE")
+                .flag("-DSQLITE_OMIT_TRACE")
+                .flag("-DSQLITE_OMIT_AUTHORIZATION")
+                // .flag("-DSQLITE_OMIT_DESERIALIZE")
+                .flag("-DSQLITE_OMIT_GET_TABLE")
+                .flag("-DSQLITE_TEMP_STORE=3")
+                .flag("-fno-stack-protector")
+                .flag("-fno-sanitize=undefined")
+                .warnings(false);
+
+
+			cfg.file(format!("{lib_name}/wasm32-unknown-vfs.c"))
+				.flag("-fno-stack-protector")
+				.flag("-fno-sanitize=undefined")
+				.warnings(false);
+			
+            cfg.file("libc-stubs/libc.c")
+                .include("libc-stubs") // addSystemIncludePath
+                .flag("-fno-stack-protector")
+                .flag("-fno-sanitize=undefined")
+                .compile("libc-stubs");
+
+	
+            cfg.include("libc-stubs");
+
+            println!("cargo:rustc-link-search=native=libc-stubs");
+        }
+
         if cfg!(feature = "unlock_notify") {
             cfg.flag("-DSQLITE_ENABLE_UNLOCK_NOTIFY");
         }
