@@ -4,7 +4,7 @@
 //! "function"](https://sqlite.org/src/file/ext/misc/series.c):
 //! `https://www.sqlite.org/series.html`
 use std::borrow::Cow;
-use std::ffi::{c_int, CStr};
+use std::ffi::{CStr, c_int};
 use std::marker::PhantomData;
 
 use crate::ffi;
@@ -262,7 +262,7 @@ unsafe impl VTabCursor for SeriesTabCursor<'_> {
             SERIES_COLUMN_STEP => self.step,
             _ => self.value,
         };
-        ctx.set_result(&x)
+        ctx.set_result(x)
     }
 
     fn rowid(&self) -> Result<i64> {
